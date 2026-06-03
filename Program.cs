@@ -22,20 +22,24 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>()
     .AddDefaultTokenProviders();
 
 // ======================
-// JWT CONFIG
+// JWT
 // ======================
 var jwtKey = builder.Configuration["Jwt:Key"]
     ?? throw new Exception("Jwt:Key missing");
 
-var jwtIssuer = builder.Configuration["Jwt:Issuer"];
-var jwtAudience = builder.Configuration["Jwt:Audience"];
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "ZielnikAPI";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "ZielnikAPI";
 
 var key = Encoding.UTF8.GetBytes(jwtKey);
 
 // ======================
-// AUTHENTICATION
+// AUTH (POPRAWIONE!)
 // ======================
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
 .AddJwtBearer(options =>
 {
     options.TokenValidationParameters = new TokenValidationParameters
@@ -51,9 +55,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     };
 });
 
-// ======================
-// AUTHORIZATION
-// ======================
 builder.Services.AddAuthorization();
 
 // ======================
@@ -63,7 +64,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
 // ======================
-// SWAGGER + JWT 🔥 FIX
+// SWAGGER + JWT
 // ======================
 builder.Services.AddSwaggerGen(c =>
 {
@@ -96,45 +97,7 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 // ======================
-// SEED ROLES + ADMIN
-// ======================
-using (var scope = app.Services.CreateScope())
-{
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
-
-    string[] roles = { "Admin", "User" };
-
-    foreach (var role in roles)
-    {
-        if (!await roleManager.RoleExistsAsync(role))
-        {
-            await roleManager.CreateAsync(new IdentityRole(role));
-        }
-    }
-
-    var adminEmail = "admin@admin.com";
-    var admin = await userManager.FindByEmailAsync(adminEmail);
-
-    if (admin == null)
-    {
-        var newAdmin = new IdentityUser
-        {
-            UserName = adminEmail,
-            Email = adminEmail
-        };
-
-        var result = await userManager.CreateAsync(newAdmin, "Admin123!");
-
-        if (result.Succeeded)
-        {
-            await userManager.AddToRoleAsync(newAdmin, "Admin");
-        }
-    }
-}
-
-// ======================
-// PIPELINE (ORDER IS CRITICAL)
+// PIPELINE
 // ======================
 if (app.Environment.IsDevelopment())
 {
@@ -144,7 +107,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseAuthentication(); // MUST BE BEFORE Authorization
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
