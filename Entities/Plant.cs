@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.AspNetCore.Identity;
+using System.ComponentModel.DataAnnotations;
 
 namespace Zielnik.Entities
 {
@@ -17,11 +18,25 @@ namespace Zielnik.Entities
         [Range(1, 365)]
         public int WateringFrequencyDays { get; set; }
 
+        public int? FertilizingFrequencyDays { get; set; }
+
+        public int? SprayingFrequencyDays { get; set; }
+
+        public int? HarvestAfterDays { get; set; }
+
         public List<PlantCategory> Categories { get; set; } = new();
         [MaxLength(500)]
         public string? Description { get; set; }
 
         public bool IsCustomPlant { get; set; }
+
+        public bool IsApproved { get; set; } = true;
+
+        public bool IsRejected { get; set; }
+
+        public string? CreatedByUserId { get; set; }
+
+        public IdentityUser? CreatedByUser { get; set; }
         public List<UserPlant> UserPlants { get; set; } = new();
     }
 }

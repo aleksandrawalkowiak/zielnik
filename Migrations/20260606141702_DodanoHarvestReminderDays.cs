@@ -5,7 +5,7 @@
 namespace Zielnik.Migrations
 {
     /// <inheritdoc />
-    public partial class ChangeUserPlantDatesToDate : Migration
+    public partial class DodanoHarvestReminderDays : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

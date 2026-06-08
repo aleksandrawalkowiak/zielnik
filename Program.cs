@@ -4,22 +4,27 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using System.Text.Json.Serialization;
 using Zielnik.Data;
 
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
 
 // ======================
 // DB
 // ======================
 builder.Services.AddDbContext<ZielnikDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // ======================
 // IDENTITY
 // ======================
 builder.Services.AddIdentity<IdentityUser, IdentityRole>()
-    .AddEntityFrameworkStores<ZielnikDbContext>()
-    .AddDefaultTokenProviders();
+    .AddEntityFrameworkStores<ZielnikDbContext>();
 
 // ======================
 // JWT
@@ -33,7 +38,7 @@ var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "ZielnikAPI";
 var key = Encoding.UTF8.GetBytes(jwtKey);
 
 // ======================
-// AUTH (POPRAWIONE!)
+// AUTH 
 // ======================
 builder.Services.AddAuthentication(options =>
 {
@@ -59,8 +64,15 @@ builder.Services.AddAuthorization();
 
 // ======================
 // CONTROLLERS
-// ======================
-builder.Services.AddControllers();
+
+
+builder.Services.AddControllersWithViews()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler =
+            ReferenceHandler.IgnoreCycles;
+    });
+
 builder.Services.AddEndpointsApiExplorer();
 
 // ======================
@@ -95,6 +107,7 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var app = builder.Build();
+Console.WriteLine("JSON IgnoreCycles loaded");
 
 // ======================
 // PIPELINE
@@ -107,9 +120,52 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseStaticFiles();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Home}/{action=Index}/{id?}");
+
 app.MapControllers();
+
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider
+        .GetRequiredService<ZielnikDbContext>();
+
+    // 
+    if (context.Database.GetAppliedMigrations().Any())
+        context.Database.Migrate();
+    else
+        context.Database.EnsureCreated();
+}
+
+using (var scope = app.Services.CreateScope())
+{
+    var roleManager = scope.ServiceProvider
+        .GetRequiredService<RoleManager<IdentityRole>>();
+
+    string[] roles = { "Admin", "User" };
+
+    foreach (var role in roles)
+    {
+        if (!await roleManager.RoleExistsAsync(role))
+        {
+            await roleManager.CreateAsync(new IdentityRole(role));
+        }
+    }
+}
+
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider
+        .GetRequiredService<ZielnikDbContext>();
+
+    SeedData.Initialize(context);
+}
+
 
 app.Run();
